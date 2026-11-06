@@ -1,0 +1,1 @@
+export default function PasswordPage(){return <main className="mx-auto max-w-md p-10"><h1 className="text-xl font-semibold">Recuperação de acesso</h1><p className="mt-4 text-sm text-mute">Contate o administrador da NEXPLAY para redefinir sua senha. Não há recuperação por e-mail configurada nesta versão.</p></main>}

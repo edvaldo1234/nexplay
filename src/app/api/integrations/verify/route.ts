@@ -1,0 +1,2 @@
+import {NextResponse} from "next/server";import {getApiUser} from "@/lib/auth";
+export async function POST(req:Request){const origin=req.headers.get("origin");if(!origin||origin!==(process.env.APP_ORIGIN||new URL(req.url).origin))return NextResponse.json({error:"Origem inválida"},{status:403});const u=await getApiUser();if(!u)return NextResponse.json({error:"Não autorizado"},{status:401});return NextResponse.json({status:"não_configurado",message:"Nenhum fornecedor de transmissão autorizado conectado."},{status:503});}

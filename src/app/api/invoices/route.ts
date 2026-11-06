@@ -1,0 +1,2 @@
+import {NextResponse} from "next/server";import {getApiUser} from "@/lib/auth";import {query} from "@/lib/db";
+export async function GET(){const u=await getApiUser();if(!u)return NextResponse.json({error:"Não autorizado"},{status:401});const rows=await query("SELECT * FROM invoices WHERE ($1::boolean OR reseller_id=$2::uuid) ORDER BY created_at DESC LIMIT 500",[u.role==="master",u.resellerId||null]);return NextResponse.json({invoices:rows});}
