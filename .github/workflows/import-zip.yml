@@ -1,8 +1,8 @@
-name: Importar NEXPLAY do ZIP
+name: Importar código NEXPLAY
 on:
   push:
     paths:
-      - 'NEXPLAY_Neon_v4_pronto_para_deploy.zip'
+      - 'nexplay-source.tar.gz'
 permissions:
   contents: write
 jobs:
@@ -12,41 +12,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
-      - name: Extrair arquivos e preservar segredos
+      - name: Extrair fonte NEXPLAY com validação
         run: |
           python3 - <<'PY'
-          import zipfile, pathlib, shutil
-          archive = pathlib.Path('NEXPLAY_Neon_v4_pronto_para_deploy.zip')
-          if not archive.exists():
-              raise SystemExit('ZIP não encontrado')
-          with zipfile.ZipFile(archive) as z:
-              for entry in z.infolist():
-                  name=pathlib.PurePosixPath(entry.filename)
-                  if name.is_absolute() or '..' in name.parts:
-                      raise SystemExit('Caminho inseguro no ZIP')
-              z.extractall('.nexplay-import')
-          root = pathlib.Path('.nexplay-import/nexplay_neon')
-          if not (root/'package.json').exists():
-              raise SystemExit('package.json ausente')
-          for p in root.rglob('*'):
-              if not p.is_file():
-                  continue
-              rel = p.relative_to(root)
-              if any(x in ('node_modules','.next','.git') for x in rel.parts):
-                  continue
-              if p.name.startswith('.env') and p.name != '.env.example':
-                  continue
-              if p.name.endswith('.tsbuildinfo'):
-                  continue
-              target=pathlib.Path.cwd()/rel
-              target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copy2(p,target)
-          shutil.rmtree('.nexplay-import')
+          import tarfile, pathlib
+          a=pathlib.Path('nexplay-source.tar.gz')
+          with tarfile.open(a, 'r:gz') as t:
+              for member in t.getmembers():
+                  p=pathlib.PurePosixPath(member.name)
+                  if p.is_absolute() or '..' in p.parts or not (member.isfile() or member.isdir()):
+                      raise SystemExit('Entrada insegura no pacote')
+                  if member.isfile() and (p.name.startswith('.env') and p.name != '.env.example'):
+                      raise SystemExit('Arquivo de ambiente não permitido')
+              t.extractall('.', filter='data')
+          if not pathlib.Path('package.json').is_file():
+              raise SystemExit('package.json não encontrado')
           PY
-      - name: Salvar código no repositório
+      - name: Commitar código-fonte
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat: importar NEXPLAY v4" || exit 0
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: importar aplicação NEXPLAY"
+            git push
+          fi
