@@ -1,0 +1,52 @@
+name: Importar NEXPLAY do ZIP
+on:
+  push:
+    paths:
+      - 'NEXPLAY_Neon_v4_pronto_para_deploy.zip'
+permissions:
+  contents: write
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Extrair arquivos e preservar segredos
+        run: |
+          python3 - <<'PY'
+          import zipfile, pathlib, shutil
+          archive = pathlib.Path('NEXPLAY_Neon_v4_pronto_para_deploy.zip')
+          if not archive.exists():
+              raise SystemExit('ZIP não encontrado')
+          with zipfile.ZipFile(archive) as z:
+              for entry in z.infolist():
+                  name=pathlib.PurePosixPath(entry.filename)
+                  if name.is_absolute() or '..' in name.parts:
+                      raise SystemExit('Caminho inseguro no ZIP')
+              z.extractall('.nexplay-import')
+          root = pathlib.Path('.nexplay-import/nexplay_neon')
+          if not (root/'package.json').exists():
+              raise SystemExit('package.json ausente')
+          for p in root.rglob('*'):
+              if not p.is_file():
+                  continue
+              rel = p.relative_to(root)
+              if any(x in ('node_modules','.next','.git') for x in rel.parts):
+                  continue
+              if p.name.startswith('.env') and p.name != '.env.example':
+                  continue
+              if p.name.endswith('.tsbuildinfo'):
+                  continue
+              target=pathlib.Path.cwd()/rel
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(p,target)
+          shutil.rmtree('.nexplay-import')
+          PY
+      - name: Salvar código no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: importar NEXPLAY v4" || exit 0
+          git push
